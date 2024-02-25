@@ -1,0 +1,75 @@
+---
+title: "specimens_workspace"
+output: html_document
+date: "2024-01-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+```
+
+Working with specimen database:
+Note that the database is limited (lack of responses, for example Rotterdam only gave us species names but not numbers) and extremely biased
+```{r}
+toothedwhale_specimens <- read.csv(file = "toothedwhale_specimens.csv",
+                                   sep = ";",
+                                   dec = ",")
+```
+
+```{r}
+#Subset of only relevant specimen information
+#leaving out things like notes, contact persons
+specimens <- dplyr::select(toothedwhale_specimens, source_code, genus,
+                    species, common_name, type, date, town, 
+                    country, notes) 
+```
+
+```{r}
+#Filtering for dated specimens
+specimens_dated <- filter(specimens, !is.na(date))
+```
+
+```{r}
+#Grouping by species and selecting only sperm whale and harbor porpoise
+group_by(specimens, species)
+specimens_phocoena_physeter <- dplyr::filter(specimens, 
+                                      genus==c("Physeter",
+                                               "Phocoena"))
+```
+
+```{r}
+species_distribution <- specimens %>% 
+  ggplot(aes(x = common_name)) +
+  geom_bar(stat = "count", colour = "black", fill = "white") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for better readability
+  labs(title = "Distribution of Specimens by Species")
+```
+
+
+
+```{r}
+#Plotting age distribution of dated specimens
+age_distribution <- specimens_dated %>% 
+  ggplot(aes(x=`date`)) +
+  geom_histogram(stat="count", colour="black", fill="white",
+                 binwidth = 1) +
+  xlim(1500, 2030) #as our dated ones range in this period now only, this shows the distribution on this small scale best
+age_distribution
+
+```
+
+```{r}
+#Specimens per country
+country_distribution <- specimens %>% 
+  ggplot(aes(x = country, fill = factor(!is.na(`date`)))) +
+  geom_bar(stat = "count", colour = "black", fill = "white") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Specimens by Country", fill = "Dated") +
+  scale_fill_manual(values = c("TRUE" = "blue", "FALSE" = "red"), labels = c("Dated", "Not Dated"))
+
+#color fill isn't working yet
+print(country_distribution)
+```
+
