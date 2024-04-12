@@ -1,75 +1,189 @@
 ---
 title: "specimens_workspace"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
 date: "2024-01-25"
 ---
-
+R markdown automatic settings
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
-library(ggplot2)
 ```
 
 Working with specimen database:
 Note that the database is limited (lack of responses, for example Rotterdam only gave us species names but not numbers) and extremely biased
 ```{r}
-toothedwhale_specimens <- read.csv(file = "toothedwhale_specimens.csv",
-                                   sep = ";",
-                                   dec = ",")
+#setting the basics and importing file
+library(tidyverse)
+library(readr)
+
+#This below part is personal
+library(readr)
+toothedwhale_specimens <- read_delim("C:/Users/Beau Luiten/Downloads/toothedwhale_specimens.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(toothedwhale_specimens)
 ```
 
+Filtering out irrelevant information for R analysis and preparing database for analysis
 ```{r}
 #Subset of only relevant specimen information
 #leaving out things like notes, contact persons
-specimens <- dplyr::select(toothedwhale_specimens, source_code, genus,
-                    species, common_name, type, date, town, 
+specimens <- select(toothedwhale_specimens, source_code, genus,
+                    species, common_name, type, date, count, town, 
                     country, notes) 
+specimens$date <- as.numeric(specimens$date)
+group_by(specimens, species)
 ```
 
 ```{r}
 #Filtering for dated specimens
 specimens_dated <- filter(specimens, !is.na(date))
+View(specimens_dated)
 ```
 
+In case someone in the future wants to work with Physeter and phocoena only
 ```{r}
 #Grouping by species and selecting only sperm whale and harbor porpoise
-group_by(specimens, species)
-specimens_phocoena_physeter <- dplyr::filter(specimens, 
+specimens_phocoena_physeter <- filter(specimens, 
                                       genus==c("Physeter",
                                                "Phocoena"))
+specimens_phocoena_physeter
+```
+
+Next I want to plot a species distribution. 
+By making it into a function, it can be applied to various databases: e.g. to compare the distribution between dated and non-dated specimens
+```{r Species distribution graphs}
+library(ggplot2)
+# Function to generate species distribution plot
+plot_species_distribution <- function(data, title) {
+  plot <- data %>% 
+    ggplot(aes(x = common_name)) +
+    geom_bar(stat = "count", colour = "black", fill = "white") +
+    geom_text(stat = "count", aes(label = ..count..), vjust =
+                -0.5, size = 4) +  # Add count labels
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  
+    labs(title = title, y = "Count", x = "Species")
+  return(plot)
+}
+
+#Species distribution for all specimens
+species_distribution <- plot_species_distribution(specimens, 
+                        "Species distribution") +
+  ylim(0,300) #subject to change in future, also for next plots
+print(species_distribution)
+
+#Species distribution for dated specimens
+species_distribution_dated <- plot_species_distribution(specimens_dated,
+              "Species distribution of dated specimens") +
+  ylim(0,50)
+print(species_distribution_dated)
+```
+
+When combined into a single figure both can directly be compared
+However, it is more difficult to interpret especially for the less frequent species
+```{r Species distribution combined graph}
+install.packages("dplyr")
+library(dplyr)
+
+# Function to generate species distribution plot
+plot_species_distribution <- function(data, data_dated, title) {
+  # Combine datasets and create a new column to distinguish
+  combined_data <- bind_rows(
+    mutate(data, dataset = "All Specimens"),
+    mutate(data_dated, dataset = "Dated Specimens"))
+  
+  # Plot
+  plot <- combined_data %>% 
+    ggplot(aes(x = common_name, fill = dataset)) +
+    geom_bar(position = "dodge", colour = "black") +
+    geom_text(stat = "count", aes(label = ..count..), position = position_dodge(width = 0.9), vjust =
+                -0.5, size = 3.5) +  # Add count labels
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  
+    labs(title = title, x = "Species", y = "Number of specimens") +
+  scale_fill_manual(values = c("All Specimens" = "#E1CC75", "Dated Specimens" = "#cd393e"))
+  return(plot)
+}
+
+#Species distribution for combined data
+species_distribution_combined <- plot_species_distribution(specimens,
+                        specimens_dated,                                                  "Species distribution") +
+  ylim(0,300)
+print(species_distribution_combined)
+```
+
+Another way is to show the information in a table
+```{r Species distribution table}
+library(dplyr)
+
+species_counts <- specimens %>%
+  group_by(common_name) %>%
+  summarise(total_count = n(),
+            dated_count = sum(!is.na(date))) %>%
+  mutate(percentage_dated = (dated_count / total_count) * 100, digits = 1) %>%
+  rename(Species = common_name,
+         `Number of specimens` = total_count,
+         `Number of dated specimens` = dated_count,
+         `Percentage dated` = percentage_dated) %>%
+arrange(desc(`Number of specimens`))
+print(species_counts)
+
 ```
 
 ```{r}
-species_distribution <- specimens %>% 
-  ggplot(aes(x = common_name)) +
-  geom_bar(stat = "count", colour = "black", fill = "white") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  # Rotate x-axis labels for better readability
-  labs(title = "Distribution of Specimens by Species")
+#Make sure to have these packages installed
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+#Code to produce a table for species distribution
+species_counts <- specimens %>%
+  group_by(common_name) %>%
+  summarise(total_count = n(),
+            dated_count = sum(!is.na(date))) %>%
+  mutate(percentage_dated = (dated_count / total_count) * 100) %>%
+  rename(Species = common_name,
+         `Number of specimens` = total_count,
+         `Number of dated specimens` = dated_count,
+         `%` = percentage_dated) %>%
+  arrange(desc(`Number of specimens`))
+
+#Using kableExtra to make it a table suitable for publication
+kable(species_counts, format = "html", digits = 1, caption = "Species Distribution") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, bold = TRUE)
 ```
 
-
-
-```{r}
+```{r Age distribution graph}
 #Plotting age distribution of dated specimens
 age_distribution <- specimens_dated %>% 
   ggplot(aes(x=`date`)) +
-  geom_histogram(stat="count", colour="black", fill="white",
+  geom_histogram(stat="count", colour="#7d9b76", fill="#7d9b76",
                  binwidth = 1) +
-  xlim(1500, 2030) #as our dated ones range in this period now only, this shows the distribution on this small scale best
+  xlim(1600, 2020) + #as our dated ones range in this period now only, this shows the distribution on this small scale best
+  labs(title = "Age distribution of dated specimens", x = "Date", y = "Number of specimens", size = 15)
+
+# Add a density line (could be left out)
+age_distribution <- age_distribution +
+  geom_density(aes(y = ..count..), color = "#cd393e")
 age_distribution
 
 ```
 
-```{r}
-#Specimens per country
-country_distribution <- specimens %>% 
-  ggplot(aes(x = country, fill = factor(!is.na(`date`)))) +
-  geom_bar(stat = "count", colour = "black", fill = "white") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(title = "Specimens by Country", fill = "Dated") +
-  scale_fill_manual(values = c("TRUE" = "blue", "FALSE" = "red"), labels = c("Dated", "Not Dated"))
+Distribution of specimens per country, and fraction that is dated
+```{r Location distribution graph}
+country_counts <- specimens %>%
+  group_by(country) %>%
+  summarise(total_count = n(),
+            dated_count = sum(!is.na(date))) %>%
+  mutate(fraction_dated = dated_count / total_count)
 
-#color fill isn't working yet
-print(country_distribution)
+# Create bar plot
+ggplot(country_counts, aes(x = country)) +
+  geom_bar(aes(y = total_count), stat = "identity", color = "#7d9b76", fill = "white") + 
+  geom_bar(aes(y = fraction_dated * total_count), stat = "identity", color = "#cd393e", fill = "#cd393e", alpha = 0.7) + 
+  geom_text(aes(label = total_count, y = total_count), vjust = -0.5, size = 6) + #only total number
+  labs(title = "Distribution of specimens per country", y = "Count of specimens", x = "Country") + 
+  ylim(0,300) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=14))
 ```
-

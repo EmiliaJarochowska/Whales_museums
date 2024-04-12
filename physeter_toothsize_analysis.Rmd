@@ -1,0 +1,80 @@
+---
+title: "physeter_toothsize_analysis"
+author: "Beau"
+date: "2024-04-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Importing database
+```{r Importing database}
+library(readr)
+physeter_toothsize <- read_delim("C:/Users/Beau Luiten/Downloads/physeter_toothsize.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(physeter_toothsize)
+```
+
+```{r Scatter plot length and width}
+library(ggplot2)
+
+# Convert "older_than" column to factor
+physeter_toothsize$older_than <- factor(physeter_toothsize$older_than)
+
+# Remove rows with missing or non-numeric values in the "year" column (now not applicable, but in case of full size database)
+physeter_toothsize <- physeter_toothsize[!is.na(physeter_toothsize$year) & is.numeric(physeter_toothsize$year), ]
+
+#Length and width distribution of dated specimens over time
+#Scatter plot with regression line and uncertainty region
+#Filtering out the specimens which have "yes" in the older_than column
+dated_sizeplot <- ggplot(physeter_toothsize, aes(x = year)) +
+  geom_point(data = subset(physeter_toothsize, older_than == "no"), aes(y = length, color = "Length"), shape = 16, size = 3) +
+  geom_point(data = subset(physeter_toothsize, older_than == "no"), aes(y = width, color = "Width"), shape = 16, size = 3) +
+  geom_smooth(data = subset(physeter_toothsize, older_than == "no"), aes(y = length), method = "lm", se = TRUE, color = "#cd393e") +
+  geom_smooth(data = subset(physeter_toothsize, older_than == "no"), aes(y = width), method = "lm", se = TRUE, color = "#5271ff") +
+  labs(x = "Year", y = "Size") +
+  scale_color_manual(values = c("Length" = "#cd393e", "Width" = "#5271ff")) +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        axis.text = element_text(size = 12)) +
+  labs(title = "Tooth length and width over time", x = "Year", y = "Size (cm)")
+
+print(dated_sizeplot)
+```
+
+To quantify the size change, assess slope of the regression line
+```{r Fit linear model}
+#Fit linear model, for tooth length and width, dated
+model_length <- lm(length ~ year, data =
+        physeter_toothsize[physeter_toothsize$older_than == "no", ])
+model_width <- lm(width ~ year, data = 
+        physeter_toothsize[physeter_toothsize$older_than == "no", ])
+
+#Print summary of the models
+summary(model_length)
+summary(model_width)
+
+#Extract coefficients: [1] is intercept, [2] is slope
+intercept_length <- coef(model_length)[1]
+slope_length <- coef(model_length)[2]
+
+intercept_width <- coef(model_width)[1]
+slope_width <- coef(model_width)[2]
+
+#Print values of intercept and slope for length and width, for interpretation
+cat("For length:")
+cat("\nIntercept:", intercept_length)
+cat("\nSlope:", slope_length)
+cat("\n\nFor width:")
+cat("\nIntercept:", intercept_width)
+cat("\nSlope:", slope_width)
+
+#Summarise by printing the equations
+equation_length <- paste("Length =", slope_length, "* year +", intercept_length)
+equation_width <- paste("Width =", slope_width, "* year +", intercept_width)
+
+cat("\n\nEquation for length:", equation_length)
+cat("\nEquation for width:", equation_width)
+```
