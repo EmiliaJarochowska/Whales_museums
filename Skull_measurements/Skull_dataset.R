@@ -1,13 +1,26 @@
 #Checking if skulls changed in size over a historical time period 
-setwd("C:/Users/Rahma022/Documents/Skull morphometry _London_edited")
-my_data <- read.csv("Skull measurements_NHM.csv")
-library(dplyr)
 
-filtered_data <- my_data %>%
-  +     filter(!is.na(Year))
+my_data <- read.csv("Skull_measurements/Skull measurements_NHM.csv")
+library(dplyr)
 library(tidyr)
 
+
+filtered_data <- my_data[!is.na(my_data$Year),]
+
+#### Autocorrelation ####
+
+library(tseries)
+
+filtered_data <- filtered_data[order(filtered_data$Year),]
+
+acf_results <- lapply(filtered_data[,2:6], function(col) {
+  acf(col, na.action = na.pass) 
+})
+
+#### Plots ####
+
 #a graph to see the trends over time for all characteristics
+
 long_data <- filtered_data %>%
   +     pivot_longer(cols = c("Length_Left_Maxillae", "Length_Right_Maxillae", 
                               +                           "Rostrum_Length", "Condylobasal_Length", 
