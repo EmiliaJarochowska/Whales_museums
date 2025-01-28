@@ -6,21 +6,23 @@
 #(a) and (b) are constants derived from the regression analysis.
 
 #For females:
-#(a = 27.39)
-#(b = 0.45)
+a_f = 27.39
+b_f = 0.45
+
+#Males
+a_m = 22.95
+b_m = 0.48
 
 #Script for this in R
-setwd("C:/Users/Rahma022/Documents/Skull morphometry _London_edited")
-my_data <- read.csv("Skull measurements_NHM.csv")
-library(dplyr)
-filtered_data <- my_data %>%
-  filter(Sex == "F")
 
-filtered_data <- filtered_data %>%
-  mutate(
-    log_a = log(27.39),
-    Predicted_Body_Length_cm = 10^(log_a + 0.45 * log(Condylobasal_Length))
-  )
+my_data <- read.csv("Skull_measurements/Skull measurements_NHM.csv")
 
-head(filtered_data)
+# de-gpt-ise:
+my_data$log_Predicted_Body_Length_cm <- NA
+for (i in which(!is.na(my_data$Sex), arr.ind = T)) {
+  ifelse(my_data$Sex[i] == "F",
+         my_data$log_Predicted_Body_Length_cm[i] <- log(a_f) + b_f * log(my_data$Condylobasal_Length[i]),
+         my_data$log_Predicted_Body_Length_cm[i] <- log(a_f) + b_f * log(my_data$Condylobasal_Length[i]))
+}
 
+my_data$Predicted_Body_Length_cm <- exp(1)^my_data$log_Predicted_Body_Length_cm
