@@ -15,7 +15,7 @@ b_m = 0.48
 
 #Script for this in R
 
-my_data <- read.csv("Skull_measurements/Skull measurements_NHM.csv")
+my_data <- read.csv("Skull_measurements/Skull_measurements_NHM.csv")
 
 # de-gpt-ise:
 my_data$log_Predicted_Body_Length_cm <- NA
